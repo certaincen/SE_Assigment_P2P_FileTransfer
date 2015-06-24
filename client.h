@@ -9,11 +9,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <pthread.h>
+#include <sys/select.h>
+#include <time.h>
+
+
 
 
 #define MAX_MSG_SIZE 1024
-#define SERVER_PORT 8888
+#define SERVER_PORT 1234
 #define FILE_PORT 7777
+#define STATE_PORT 4321
 #define ONLINE 1
 #define OFFLINE -1
 #define BUSY 0
@@ -27,6 +33,9 @@
 #define R_OFFLINE 1
 #define R_BUSY 2
 #define R_QUERY 3
+#define R_CONN 4
+#define DEBUG 0
+#define MAX_THREADS 1
 
 
 

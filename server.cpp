@@ -20,16 +20,19 @@ void udp_respon(int sockfd, struct sockaddr_in my_recv_addr)
     unsigned int arr_len = sizeof(my_recv_addr);
     int recv_len;
     char msg[MAX_MSG_SIZE];
-
+    printf("wait for message\n");
     while(1)
     {
-        if ((recv_len = recvfrom(sockfd, msg, MAX_MSG_SIZE, 0, (struct sockaddr *)&my_recv_addr, (socklen_t*)&arr_len)))
+        recv_len = recvfrom(sockfd, msg, MAX_MSG_SIZE, 0, (struct sockaddr *)&my_recv_addr, (socklen_t*)&arr_len);
+        if (recv_len < 0)
         {
             printf("recive package error\n");
             continue;
         }
-        msg[recv_len] = '\0';
+        printf("recv op\n");
+        //msg[recv_len] = '\0';
         int* op_index = (int *)msg;
+        printf("op is %d", *op_index);
         if (*op_index < 0 || *op_index > 5)
         {
             printf("operator option error\n");
@@ -51,16 +54,19 @@ int main()
         printf("Socket creat fail\n");
         exit(1);
     }
-    struct sockaddr_in address;
+    struct sockaddr_in address, client_addr;
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htonl(INADDR_ANY);
-    address.sin_port = htons(SERVER_PORT);
+    //address.sin_addr.s_addr = htonl(inet_addr("127.0.0.1"));
+    //address.sin_port = htons(SERVER_PORT);
+    address.sin_port = (SERVER_PORT);
+    printf("%d\n", address.sin_addr.s_addr);
     if (bind(sockfd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         printf("bind error \n");
         exit(1);
     }
-    udp_respon(sockfd, address);
+    udp_respon(sockfd, client_addr);
     close(sockfd);
     return 0;
 }
@@ -177,22 +183,28 @@ int busy_op(struct sockaddr_in *my_recv_addr, int sockfd, const char* msg)
 int send_status_to_client(string client_name, int status, int sockfd)
 {
     struct sockaddr_in respon_addr;
+#if DEBUG
+    printf("send to client list\n");
+#endif
     for (iter = client_list.begin(); iter != client_list.end(); iter++)
     {
         if (strcmp(client_name.c_str(), iter->first.c_str()) != 0)
         {
             struct client_inform  tmp_client = iter->second;
             respon_addr.sin_family = AF_INET;
-            respon_addr.sin_port = htons(tmp_client.port);
-            respon_addr.sin_addr.s_addr = htonl(inet_addr(iter->first.c_str()));
+            respon_addr.sin_port = (STATE_PORT);
+            //respon_addr.sin_port = htons(tmp_client.port);
+            //respon_addr.sin_addr.s_addr = htonl(inet_addr(iter->first.c_str()));
+            respon_addr.sin_addr.s_addr = (inet_addr(iter->first.c_str()));
             char msg[400];
             const char* ip_inform = iter->first.c_str();
             int len = strlen(ip_inform);
             int s = SUCCESS;
             memcpy(msg, &s, sizeof(int));
-            memcpy(msg+sizeof(int), ip_inform, len);
-            memcpy(msg+sizeof(int)+len, &status, sizeof(int));
-            if (sendto(sockfd, msg, len+2*sizeof(int), 0, (struct sockaddr *)&respon_addr, sizeof(respon_addr)) == -1)
+            memcpy(msg+sizeof(int), &len, sizeof(int));
+            memcpy(msg+2*sizeof(int), ip_inform, len);
+            memcpy(msg+2*sizeof(int)+len, &status, sizeof(int));
+            if (sendto(sockfd, msg, len+3*sizeof(int), 0, (struct sockaddr *)&respon_addr, sizeof(respon_addr)) == -1)
             {
                 printf("send back error ip %s\n", iter->first.c_str());
                 continue;
@@ -206,23 +218,33 @@ int req_connect_op(struct sockaddr_in *my_recv_addr, int sockfd, const char* msg
     struct sockaddr_in respon_addr;
     int* msg_len = (int *)(msg + sizeof(int));
     char client_name[400];
-    memcpy(client_name, msg+2*sizeof(int), (size_t)msg_len);
+    memcpy(client_name, msg+2*sizeof(int), (size_t)*msg_len);
     struct client_inform client_in;
     iter = client_list.find(string(client_name));
     client_in = iter -> second;
     respon_addr.sin_family = AF_INET;
-    respon_addr.sin_port = htons(client_in.port);
-    respon_addr.sin_addr.s_addr = htonl(inet_addr(client_name));
+    respon_addr.sin_port = (client_in.port);
+    //respon_addr.sin_port = htons(client_in.port);
+    //respon_addr.sin_addr.s_addr = htonl(inet_addr(client_name));
+    respon_addr.sin_addr.s_addr = (inet_addr(client_name));
     char send_msg[400];
     char *send_addr = inet_ntoa(my_recv_addr -> sin_addr);
     int str_len = strlen(send_addr);
     memcpy(send_msg, &str_len, sizeof(int));
     memcpy(send_msg+sizeof(int), send_addr, str_len);
-    if (sendto(sockfd, send_msg, sizeof(int)+str_len, 0, (struct sockaddr*)&respon_addr, sizeof(struct sockaddr)))
+#if DEBUG
+    printf("tcp host name is %s\n", client_name);
+    printf("file host name is %s\n", send_addr);
+#endif
+    if (sendto(sockfd, send_msg, sizeof(int)+str_len, 0, (struct sockaddr*)&respon_addr, sizeof(respon_addr)) == -1)
     {
         printf("send to client error\n");
         return -1;
     }
-    return 0;
+    else
+    {
+        printf("send to client success\n");
+    }
+    return 1;
 
 }
